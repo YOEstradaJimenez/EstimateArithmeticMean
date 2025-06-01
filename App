@@ -1,0 +1,190 @@
+package ru.spbu.mas;
+
+import jade.core.AID;
+import jade.core.behaviours.TickerBehaviour;
+import jade.lang.acl.ACLMessage;
+import java.util.ArrayList;
+import java.util.concurrent.ThreadLocalRandom;
+
+public	class	FindAverage	extends	TickerBehaviour	{
+
+    private	final	DefaultAgent	agent;
+    private	int	currentStep;
+    public	int	MAX_STEPS	= 1;
+    FindAverage(DefaultAgent	agent,	long	period)	{
+        super(agent,	period);
+        this.setFixedPeriod(true);
+        this.agent	=	agent;
+        this.currentStep	=	0;
+    }
+
+    //^.^ Data
+    //^.^ Number of message between agents
+    int Cl = 0;
+    //^.^ Number of additions
+    int Cs = 0;
+    //^.^ Number of division
+    int Cd = 0;
+    //^.^ Memory
+    long Cm = 0;
+    //^.^ Number of Agents
+    int N = 0;
+    //^.^ Consensus
+    int Cn = 0;
+
+    protected	void	onTick()	{
+        if	(currentStep	<	MAX_STEPS)	{
+            //System.out.println("Agent	"	+	this.agent.getLocalName()	+	":	tick="	+	getTickCount());
+            this.currentStep++;
+
+            //^.^ Get Arguments
+            Object[] Args = myAgent.getArguments();
+            ArrayList <String> AgentSockets = (ArrayList <String>) Args[2];
+            ArrayList <String> AgentBuffer = (ArrayList <String>) Args[4];
+            ArrayList <String> AgentMessageStatus = (ArrayList <String>) Args[6];
+            double AgentMemory = (double) Args[1];
+            N = (int) Args[0];
+
+            //^.^ Inform to Connections
+            ACLMessage Inform = new ACLMessage(ACLMessage.INFORM);
+            if(AgentMessageStatus.contains("update"))
+            {
+                Inform.setConversationId("Check Out, I got this: ");
+                //^.^ Random noise
+                double noise = ThreadLocalRandom.current().nextDouble(-0.5, 0.5);
+                //^.^ Message format
+                String Message = String.valueOf(AgentMemory + noise);
+                Inform.setContent(Message);
+                //^.^ Add receiver
+                int receivers = 0;
+                for(int i = 0 ; i < AgentSockets.size(); i++)
+                {
+                    if(AgentMessageStatus.get(i).equals("update")) {
+                        //^.^ Probability of Fail ~ 5%?
+                        int Reliability = ThreadLocalRandom.current().nextInt(0, 100 + 1);
+                        if (Reliability > 5) {
+                            String Receiver = AgentSockets.get(i);
+                            Inform.addReceiver(new AID(Receiver, AID.ISLOCALNAME));
+                            AgentMessageStatus.set(i, "send");
+                            Cl++;
+                            receivers++;
+                        } else {
+                            String Receiver = AgentSockets.get(i);
+                            System.out.println("^.^ Hi, I am Agent " + myAgent.getLocalName() + ", Sorry, I couldn't connect with Agent " + Receiver + ", Ticks:" + getTickCount());
+                        }
+                    }
+                }
+                //^.^ Send the Inform
+                if(receivers > 0) {
+                    myAgent.send(Inform);
+                }
+                Args[6] = AgentMessageStatus;
+                myAgent.setArguments(Args);
+            }
+
+            //^.^ Probability of Delay ~ 5%?
+            int Delay = ThreadLocalRandom.current().nextInt(0, 100 + 1);
+
+            //^.^ Read Messages
+            if(Delay > 5)
+            {
+                for(int u = 0; u < AgentBuffer.size(); u++)
+                {
+                    ACLMessage Inbox = myAgent.receive();
+                    if (Inbox != null) {
+                        String Content = Inbox.getContent();
+                        String ShortContent = Content.substring(0, Content.indexOf(".") + 2);
+                        //^.^ Print the Message
+                        AID Sender = Inbox.getSender();
+                        String Template = Inbox.getConversationId();
+                        //System.out.println("Message, From Agent: " + Sender.getLocalName() + " to Agent: " + myAgent.getLocalName() + " <" + Template + ShortContent + ">");
+
+                        //^.^ Update the Buffer
+                        if(AgentBuffer.contains("none")) {
+                            for(int r = 0; r < AgentSockets.size(); r++) {
+                                if(Sender.getLocalName().equals(AgentSockets.get(r))) {
+                                    if(AgentBuffer.get(r).equals("none")) {
+                                        AgentBuffer.set(r, Content);
+                                        Args[4] = AgentBuffer;
+                                        myAgent.setArguments(Args);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            else
+            {
+                int Queue = myAgent.getCurQueueSize();
+                if (Queue > 0) {
+                    System.out.println("^.^ Hi, I am Agent " + myAgent.getLocalName() + ", Something came out, I will be back soon, Ticks:" + getTickCount());
+                }
+            }
+
+            //^.^ Local Voting Protocol
+            double alpha = 0.3;
+            AgentBuffer = (ArrayList<String>) Args[4];
+            if(!AgentBuffer.contains("none")) {
+                double SyncAgents = 0;
+                for (int s = 0; s < AgentBuffer.size(); s++) {
+                    SyncAgents = SyncAgents + Double.parseDouble(AgentBuffer.get(s));
+                    Cs++;
+                }
+
+                //^.^  Dynamic Equation
+                double NewAgentMemory = AgentMemory + alpha * (SyncAgents - AgentBuffer.size() * AgentMemory);
+                Cs++;
+                Cd++;
+
+                //^.^ Check Plateau
+                double Variation = 0.05;
+                if(NewAgentMemory < AgentMemory + Variation && NewAgentMemory > AgentMemory - Variation)
+                {
+                    int UpCount = (int) Args[3];
+                    UpCount++;
+                    Args[3] = UpCount;
+                }
+                else
+                {
+                    Args[3] = 0;
+                }
+
+                //^.^ Update Memory
+                Args[1] = NewAgentMemory;
+                myAgent.setArguments(Args);
+
+                //^.^ Free Buffer
+                for (int s = 0; s < AgentBuffer.size(); s++) {
+                    AgentBuffer.set(s,"none");
+                    AgentMessageStatus.set(s,"update");
+                    Args[6] = AgentMessageStatus;
+                    myAgent.setArguments(Args);
+                }
+
+                //^.^ Print update
+                String AgentMemoryString = String.valueOf(AgentMemory);
+                String ShortAgentMemoryString = AgentMemoryString.substring(0, AgentMemoryString.indexOf(".") + 2);
+                System.out.println("^.^ Hi, I am Agent " + myAgent.getLocalName() + ", Reference values " + Args[5] +", I got an average of: " + ShortAgentMemoryString + ", Ticks:" + getTickCount());
+            }
+
+            //^.^ Check for Consensus
+            int Check = 1;
+            int Plateau = (int) Args[3];
+            if(Check < Plateau)
+            {
+                Cm = Runtime.getRuntime().totalMemory() - Runtime.getRuntime().freeMemory();
+                ArrayList<String> NMd = GraphParameters.ParametersArray(N);
+                System.out.println("^.^ Report, Number of Agent: " + NMd.get(0) + ", Graph Edges: " + NMd.get(1) + ", Maximum Depth: "+ NMd.get(2) + ", Minimum Depth: " + NMd.get(3) + ", Memory Usage: " + Cm +" Bytes"+ ", Messages Between Agents: " + Cl + ", Additions: " + Cs + ", Multiplications: " + Cd + ", Ticks:" + getTickCount());
+                Cn++;
+
+            }
+            else
+            {
+                MAX_STEPS++;
+            }
+        }	else	{
+           this.stop();
+        }
+    }
+}
