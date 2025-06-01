@@ -1,0 +1,94 @@
+package ru.spbu.mas;
+import java.util.*;
+
+public class GraphParameters {
+
+    public static ArrayList<String> ParametersArray( int AgentTotal) {
+        ArrayList<String> Parameters= new ArrayList<String>();
+        Parameters.add(Integer.toString(AgentTotal));
+
+        //^.^ Finding Number Connections
+        ArrayList<ArrayList<Integer>> Comparator = new ArrayList<ArrayList<Integer>>();
+        for(int i = 0; i < AgentTotal; i++)
+        {
+            ArrayList<String> Connection = Graph.ReturningArray(i+1);
+            //^.^ Arrange Data
+            for(int j = 0; j < Connection.size(); j++)
+            {
+                ArrayList<Integer> Link = new ArrayList<Integer>();
+                int number = Integer.parseInt(Connection.get(j));
+                if(number != i+1)
+                {
+                    Link.add(i + 1);
+                    Link.add(number);
+                    Collections.sort(Link);
+                    Comparator.add(Link);
+                }
+            }
+        }
+        Set<ArrayList<Integer>>  Sockets = new HashSet<>(Comparator);
+        Parameters.add(Integer.toString(Sockets.size()));
+
+        //^.^ finding Depth of the Graph
+        int MinDepth = AgentTotal + 1;
+        int MaxDepth = 0;
+
+        for(int k = 0; k < AgentTotal; k++)
+        {
+            int Breaker = 0;
+            int Depth = 0;
+            ArrayList<Integer> Thread = new ArrayList<Integer>();
+            ArrayList<Integer> TemporalThread = new ArrayList<Integer>();
+            Thread.add(k+1);
+            TemporalThread.add(k+1);
+            while(Thread.size() != AgentTotal)
+            {
+                for(int u = 0; u < Thread.size(); u++)
+                {
+                    ArrayList<String> Connection = Graph.ReturningArray(Thread.get(u));
+                    for(int w = 0; w < Connection.size(); w++)
+                    {
+                        int number = Integer.parseInt(Connection.get(w));
+                        if(!Thread.contains(number))
+                        {
+                            TemporalThread.add(number);
+                        }
+                    }
+
+                }
+
+                if(Thread.size() < TemporalThread.size())
+                {
+                    for(int v = Thread.size(); v < TemporalThread.size(); v++)
+                    {
+                        Thread.add(TemporalThread.get(v));
+                    }
+                    Depth++;
+                }
+
+                double Limit = Math.pow(AgentTotal, AgentTotal - 2);
+                Breaker++;
+
+                if(Breaker > Limit)
+                {
+                    break;
+                }
+            }
+
+            if(Depth < MinDepth)
+            {
+                MinDepth = Depth;
+            }
+
+            if(Depth > MaxDepth)
+            {
+                MaxDepth = Depth;
+            }
+        }
+
+        Parameters.add(Integer.toString(MaxDepth));
+        Parameters.add(Integer.toString(MinDepth));
+
+        return Parameters;
+    }
+}
