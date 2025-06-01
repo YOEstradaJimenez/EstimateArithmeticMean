@@ -1,0 +1,40 @@
+package ru.spbu.mas;
+
+import java.util.ArrayList;
+
+public class Graph {
+
+    public static  ArrayList<String> ReturningArray(int AgentID)
+    {
+        ArrayList<String> PossibleConnection= new ArrayList<String>();
+
+        //^.^ Representation of adjacency matrix
+        int[][] AdjMatrix = {
+                {0,1,0,0,1},
+                {1,0,1,0,0},
+                {0,1,0,1,0},
+                {0,0,1,0,1},
+                {1,0,0,1,0},
+        };
+
+        //^.^ As Long the Matrix is a square
+        if(AdjMatrix.length == AdjMatrix[0].length)
+        {
+            for(int i = 0 ; i < AdjMatrix[0].length; i++)
+            {
+                if(AgentID-1 >= 0)
+                {
+                    if(AdjMatrix[AgentID-1][i] == 1)
+                    {
+                        int sum = i + 1;
+                        String name = Integer.toString(sum);
+                        PossibleConnection.add(name);
+                    }
+                }
+
+            }
+        }
+
+        return PossibleConnection;
+    }
+}
